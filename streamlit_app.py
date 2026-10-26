@@ -24,19 +24,21 @@ if st.button("🚀 PROSES SEKARANG", type="primary", use_container_width=True):
   if uploaded_new_file is None:
     st.warning("⚠️ Harap upload file CSV baru terlebih dahulu!")
   else:
-    with st.spinner("Sedang memproses data, mohon tunggu..."):
+    with st.spinner(
+        "Sedang membaca dan memproses data, mohon tunggu sebentar..."
+    ):
       try:
-        # 1. Baca File Baru
-        df_new = pd.read_csv(uploaded_new_file, low_memory=False)
+        # Menggunakan encoding 'latin1' agar aman dari error karakter khusus / ANSI
+        df_new = pd.read_csv(uploaded_new_file, low_memory=False, encoding='latin1')
 
-        # Aturan 1
+        # Aturan 1: STATUS_POD = Return Shipper DAN WUS_REMARKS mengandung HRS atau HRI
         cond1 = (df_new['STATUS_POD'].astype(str).str.strip() == 'Return Shipper') & (
             df_new['WUS_REMARKS']
             .astype(str)
             .str.contains('HRS|HRI', case=False, na=False)
         )
 
-        # Aturan 2
+        # Aturan 2: BILNOTE_AMOUNT terisi/angka DAN STATUS_POD = Success DAN SCO_NO mengandung SCO
         bilnote_series = df_new['BILNOTE_AMOUNT'].astype(str).str.strip()
         cond2 = (
             df_new['BILNOTE_AMOUNT'].notna()
@@ -50,7 +52,7 @@ if st.button("🚀 PROSES SEKARANG", type="primary", use_container_width=True):
             )
         )
 
-        # Aturan 3
+        # Aturan 3: STATUS_POD = Success DAN WUS_REMARKS mengandung HRS
         cond3 = (df_new['STATUS_POD'].astype(str).str.strip() == 'Success') & (
             df_new['WUS_REMARKS']
             .astype(str)
@@ -62,15 +64,16 @@ if st.button("🚀 PROSES SEKARANG", type="primary", use_container_width=True):
         df_new_close = df_new[close_mask].copy()
         df_new_open = df_new[~close_mask].copy()
 
-        # 2. Proses File CLOSE Lama & Deduplikasi jika ada
+        # Proses File CLOSE Lama jika di-upload
         if uploaded_old_file is not None:
-          df_old_close = pd.read_csv(uploaded_old_file, low_memory=False)
+          df_old_close = pd.read_csv(uploaded_old_file, low_memory=False, encoding='latin1')
           df_combined_close = pd.concat(
               [df_old_close, df_new_close], ignore_index=True
           )
         else:
           df_combined_close = df_new_close
 
+        # Deduplikasi AWB berdasarkan TGL_TARIK_REPORT terbaru
         if (
             'AWB' in df_combined_close.columns
             and 'TGL_TARIK_REPORT' in df_combined_close.columns
@@ -98,7 +101,7 @@ if st.button("🚀 PROSES SEKARANG", type="primary", use_container_width=True):
           st.write(f"Jumlah baris: {len(df_new_open):,}")
           st.download_button(
               label="📥 Download hasil_open_baru.csv",
-              data=df_new_open.to_csv(index=False).encode('utf-8'),
+              data=df_new_open.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'),
               file_name="hasil_open_baru.csv",
               mime="text/csv",
           )
@@ -108,7 +111,7 @@ if st.button("🚀 PROSES SEKARANG", type="primary", use_container_width=True):
           st.write(f"Jumlah baris: {len(df_combined_close):,}")
           st.download_button(
               label="📥 Download hasil_close_final.csv",
-              data=df_combined_close.to_csv(index=False).encode('utf-8'),
+              data=df_combined_close.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'),
               file_name="hasil_close_final.csv",
               mime="text/csv",
           )
